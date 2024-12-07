@@ -1,6 +1,5 @@
 import asyncio
 
-from src.console import console
 from src.thon.json_converter import JsonConverter
 from src.starter import Starter
 from scripts.authorization import register_user 

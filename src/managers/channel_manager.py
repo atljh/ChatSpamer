@@ -1,8 +1,5 @@
-import random
 import asyncio
-import logging
 
-from telethon import events
 from telethon.errors import UserNotParticipantError, FloodWaitError
 from telethon.errors.rpcerrorlist import UserBannedInChannelError, MsgIdInvalidError
 from telethon.tl.functions.channels import JoinChannelRequest
@@ -24,6 +21,78 @@ class ChannelManager:
         self.cycles_before_unblacklist = self.config.cycles_before_unblacklist
 
         self.groups = FileManager.read_groups()
+        self.post_text, self.image  = FileManager.read_post_and_image()
+
+    async def process_groups(self, client, account_phone):
+        for group in self.groups:
+            join_result = await self.join_group(client, account_phone, group)
+            if "OK" not in join_result:
+                return join_result
+            send_result = await self.send_post(client, account_phone, group)
+            if "OK" not in send_result:
+                return send_result
+        return "OK"
+    
+    async def join_group(self, client, account_phone, group):
+        try:
+            entity = await client.get_entity(group)
+            if await self.is_participant(client, entity):
+                return "OK"
+        except Exception:
+            try:
+                await self.sleep_before_enter_group()
+                await client(ImportChatInviteRequest(group[6:]))
+                console.log(f"Аккаунт {account_phone} присоединился к приватной группе {group}")
+                return "OK"
+            except Exception as e:
+                if "is not valid anymore" in str(e):
+                    console.log("Вы забанены в канале")
+                    return "OK"
+                else:
+                    console.log(f"Ошибка при присоединении к группе {group}: {e}")
+                    return
+        try:
+            await self.sleep_before_enter_group()
+            await client(JoinChannelRequest(group))
+            console.log(f"Аккаунт присоединился к группе {group}")
+        except Exception as e:
+            console.log(f"Ошибка при подписке на группу {group}: {e}")
+            return "ERROR"
+        return "OK"
+    
+    async def send_post(self, client, account_phone, group, attempts=0):
+        try:
+            group = await self.get_channel_entity(client, group)
+            if not group:
+                console.log("Канал не найден или недоступен.", style="red")
+                return
+            if self.image:
+                await client.send_file(
+                    group, self.image,
+                    caption=self.post_text,
+                    parse_mode='HTML'
+                )
+            else:
+                await client.send_message(
+                    group, self.post_text, 
+                    parse_mode='HTML'
+                )
+
+            console.log(f"Сообщение отправлено от аккаунта {account_phone} в группу {group.title}", style="green")
+        except FloodWaitError as e:
+            console.log(f"Слишком много запросов от аккаунта {account_phone}. Ожидание {e.seconds} секунд.", style="yellow")
+        except UserBannedInChannelError:
+            console.log(f"Аккаунт {account_phone} заблокирован в группе {group.title}", style="red")
+        except MsgIdInvalidError:
+            console.log("Канал не связан с чатом", style="red")
+        except Exception as e:
+            if "private and you lack permission" in str(e):
+                console.log(f"Группа {group.title} недоступен для аккаунта {account_phone}. Пропускаем.", style="yellow")
+            elif "You can't write" in str(e):
+                console.log(f"Группа {group.title} недоступен для аккаунта {account_phone}. Пропускаем.", style="yellow")
+            else:
+                console.log(f"Ошибка при отправке сообщения: {e}", style="red")
+        return "OK"
 
     async def is_participant(self, client, group):
         try:
@@ -34,52 +103,7 @@ class ChannelManager:
         except Exception as e:
             console.log(f"Ошибка при обработке канала {group}: {e}")
             return False
-        
-    async def sleep_before_send_message(self):
-        delay =  self.delay_before_sending
-        console.log(f"Задержка перед отправкой сообщения {delay} сек")
-        await asyncio.sleep(delay)
-
-    async def sleep_before_enter_channel(self):
-        delay = self.delay_before_subscription
-        console.log(f"Задержка перед подпиской на канал {delay} сек")
-        await asyncio.sleep(delay)
-
-    async def join_groups(self, client, account_phone):
-        for group in self.groups:
-            try:
-                entity = await client.get_entity(group)
-                if await self.is_participant(client, entity):
-                    continue
-            except Exception:
-                try:
-                    await self.sleep_before_enter_channel()
-                    await client(ImportChatInviteRequest(group[6:]))
-                    console.log(f"Аккаунт {account_phone} присоединился к приватному каналу {group}")
-                    continue
-                except Exception as e:
-                    if "is not valid anymore" in str(e):
-                        console.log("Вы забанены в канале")
-                        continue
-                    else:
-                        console.log(f"Ошибка при присоединении к каналу {group}: {e}")
-                        continue
-            try:
-                await self.sleep_before_enter_channel()
-                await client(JoinChannelRequest(group))
-                console.log(f"Аккаунт присоединился к каналу {group}")
-            except Exception as e:
-                console.log(f"Ошибка при подписке на канал {group}: {e}")
-                    
-    async def monitor_groups(self, client, account_phone):
-        for group in self.groups:
-            client.add_event_handler(
-                lambda event: self.new_post_handler(client, event, self.prompt_tone, account_phone),
-                events.NewMessage(chats=group)
-            )
-        console.log(f"Мониторинг каналов начался для аккаунта {account_phone}...")
-        await self.stop_event.wait()
-
+    
     async def get_channel_entity(self, client, group):
         try:
             return await client.get_entity(group)
@@ -87,49 +111,12 @@ class ChannelManager:
             console.log(f"Ошибка получения объекта канала: {e}", style="red")
             return None
 
-    async def send_comment(self, client, account_phone, group, comment, message_id, attempts=0):
+    async def sleep_before_send_message(self):
+        delay =  self.delay_before_sending
+        console.log(f"Задержка перед отправкой сообщения {delay} сек")
+        await asyncio.sleep(delay)
 
-        try:
-            channel_entity = await self.get_channel_entity(client, group)
-            if not channel_entity:
-                console.log("Канал не найден или недоступен.", style="red")
-                return
-            await client.send_message(
-                entity=channel_entity,
-                message=comment,
-                comment_to=message_id
-            )
-            console.log(f"Комментарий отправлен от аккаунта {account_phone} в канал {group.title}", style="green")
-            self.account_comment_count[account_phone] = self.account_comment_count.get(account_phone, 0) + 1
-            if self.account_comment_count[account_phone] >= self.comment_limit:
-                await self.switch_to_next_account()
-                await self.sleep_account(account_phone)
-        except FloodWaitError as e:
-            logging.warning(f"Слишком много запросов от аккаунта {account_phone}. Ожидание {e.seconds} секунд.", style="yellow")
-            await asyncio.sleep(e.seconds)
-            await self.switch_to_next_account()
-        except UserBannedInChannelError:
-            console.log(f"Аккаунт {account_phone} заблокирован в канале {group.title}", style="red")
-            await self.switch_to_next_account()
-        except MsgIdInvalidError:
-            console.log("Канал не связан с чатом", style="red")
-            await self.switch_to_next_account()
-        except Exception as e:
-            if "private and you lack permission" in str(e):
-                console.log(f"Канал {group.title} недоступен для аккаунта {account_phone}. Пропускаем.", style="yellow")
-            elif "You can't write" in str(e):
-                console.log(f"Канал {group.title} недоступен для аккаунта {account_phone}. Пропускаем.", style="yellow")
-            else:
-                console.log(f"Ошибка при отправке комментария: {e}", style="red")
-            
-            if attempts < self.MAX_SEND_ATTEMPTS:
-                console.log(f"Попытка {attempts + 1}/{self.MAX_SEND_ATTEMPTS} отправить сообщение c другого аккаунта...")
-                await self.switch_to_next_account()
-                next_client = self.accounts.get(self.active_account)
-                if next_client:
-                    await self.sleep_before_send_message()
-                    await self.send_comment(next_client, account_phone, group, comment, message_id, attempts + 1)
-                else:
-                    console.log("Нет доступных аккаунтов для отправки.", style="red")
-            else:
-                console.log(f"Не удалось отправить сообщение после {self.MAX_SEND_ATTEMPTS} попыток.", style="red")
+    async def sleep_before_enter_group(self):
+        delay = self.delay_before_subscription
+        console.log(f"Задержка перед подпиской на группу {delay} сек")
+        await asyncio.sleep(delay)

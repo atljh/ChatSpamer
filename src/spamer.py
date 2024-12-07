@@ -21,15 +21,23 @@ class Spamer(BaseThon):
         self.account_phone = os.path.basename(self.item).split('.')[0]
         self.channel_manager = ChannelManager(self.config)
 
-    async def __main(self):
-        await self.channel_manager.join_groups(self.client, self.account_phone)
-        console.log(f"Аккаунт {self.account_phone} успешно подключен и добавлен в очередь.", style="green")
-
+    async def _join_group(self):
+        console.log(f"Используется аккаунт {self.account_phone}", style="green")
+        r = await self.channel_manager.process_groups(self.client, self.account_phone)
+        return r
+    
+    async def _send_message(self):
+        r = await self.channel_manager.send_post()
+        return r
+    
     async def _main(self) -> str:
         r = await self.check()
         if "OK" not in r:
             return r
-        await self.__main()
+        r = await self._join_group()
+        if "OK" not in r:
+            return r
+        await self.disconnect()
         return r
 
     async def main(self) -> str:

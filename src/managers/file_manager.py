@@ -1,3 +1,5 @@
+import os
+
 from src.console import console
 
 class FileManager:
@@ -11,16 +13,21 @@ class FileManager:
             return None
 
     @staticmethod
-    def read_prompts(file='prompts.txt'):
-        prompts = []
-        try:
-            with open(file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        prompts.append(line)
-            return prompts
-        except FileNotFoundError:
-            console.log("Файл prompts.txt не найден", style="bold red")
-            return []
+    def read_post_and_image(post_path="post") -> tuple[str, str | None]:
+        post_text = ""
+        image_path = None
 
+        post_file_path = os.path.join(post_path, "post.txt")
+        try:
+            with open(post_file_path, 'r', encoding='utf-8') as f:
+                post_text = f.read()
+        except FileNotFoundError:
+            console.log(f"Файл {post_file_path} не найден", style="bold red")
+
+        image_file_path = os.path.join(post_path, "image.jpg")
+        if os.path.exists(image_file_path):
+            image_path = image_file_path
+        else:
+            console.log(f"Изображение {image_file_path} не найдено", style="bold yellow")
+
+        return post_text, image_path
