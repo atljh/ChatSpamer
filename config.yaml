@@ -1,0 +1,7 @@
+settings:
+  delay_before_sending: 7              # Задержка перед отправкой сообщения (в секундах)
+  delay_before_subscription: 7         # Задержка перед подпиской (в секундах)
+  delay_before_second_subscription: 7  # Задержка перед повторной подпиской (в секундах)
+  delay_between_accounts: 7            # Задержка между сменой аккаунта (в секундах)
+  delay_after_mute: 600                # Задержка после блокировки/мута (в секундах)
+  cycles_before_unblacklist: 7         # Количество циклов до снятия из черного списка
