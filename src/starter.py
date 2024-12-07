@@ -28,10 +28,10 @@ class Starter(BaseSession):
         config
     ):
         try:
-            commenter = Spamer(item, json_file, json_data, config)
+            spamer = Spamer(item, json_file, json_data, config)
             async with self.semaphore:
                 try:
-                    r = await commenter.main()
+                    r = await spamer.main()
                 except Exception as e:
                     console.log(f"Ошибка при работе аккаунта {item}: {e}", style="red")
                     r = "ERROR_UNKNOWN"
@@ -40,7 +40,10 @@ class Starter(BaseSession):
             if "ERROR_AUTH" in r:
                 move_item(item, self.banned_dir, True, True)
                 move_item(json_file, self.banned_dir, True, True)
-            if "ERROR_STORY" in r:
+            if "ERROR" in r:
+                move_item(item, self.errors_dir, True, True)
+                move_item(json_file, self.errors_dir, True, True)
+            if "MUTE" in r:
                 move_item(item, self.errors_dir, True, True)
                 move_item(json_file, self.errors_dir, True, True)
             if "OK" in r:

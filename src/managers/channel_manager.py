@@ -17,7 +17,6 @@ class ChannelManager:
         self.delay_before_subscription = self.config.delay_before_subscription
         self.delay_before_second_subscription = self.config.delay_before_second_subscription
         self.delay_between_accounts = self.config.delay_between_accounts
-        self.delay_after_mute = self.config.delay_after_mute
         self.cycles_before_unblacklist = self.config.cycles_before_unblacklist
 
         self.groups = FileManager.read_groups()
@@ -28,6 +27,7 @@ class ChannelManager:
             join_result = await self.join_group(client, account_phone, group)
             if "OK" not in join_result:
                 return join_result
+            await self.sleep_before_send_message()
             send_result = await self.send_post(client, account_phone, group)
             if "OK" not in send_result:
                 return send_result
@@ -81,6 +81,7 @@ class ChannelManager:
             console.log(f"Сообщение отправлено от аккаунта {account_phone} в группу {group.title}", style="green")
         except FloodWaitError as e:
             console.log(f"Слишком много запросов от аккаунта {account_phone}. Ожидание {e.seconds} секунд.", style="yellow")
+            return "MUTE"
         except UserBannedInChannelError:
             console.log(f"Аккаунт {account_phone} заблокирован в группе {group.title}", style="red")
         except MsgIdInvalidError:
