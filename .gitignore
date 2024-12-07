@@ -1,4 +1,11 @@
 venv
+__pycache__/
+logs/
 settings.json
-*.txt
-*.jpg
+post.txt
+image.jpg
+poetry.lock
+*.pyc
+*.pyo
+*.session
+*.json
