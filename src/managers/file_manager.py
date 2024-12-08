@@ -1,4 +1,5 @@
 import os
+import sys
 
 from src.console import console
 
@@ -7,7 +8,11 @@ class FileManager:
     def read_groups(file='groups.txt') -> list:
         try:
             with open(file, 'r', encoding='utf-8') as f:
-                return [line.strip().replace("https://", "") for line in f.readlines()]
+                groups = [line.strip().replace("https://", "") for line in f.readlines()]
+                if not groups:
+                    console.log("Группы не найдены", style="red")
+                    sys.exit(1)
+                return groups
         except FileNotFoundError:
             console.log("Файл groups.txt не найден", style="bold red")
             return None

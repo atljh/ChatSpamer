@@ -69,14 +69,14 @@ class ChannelManager:
             return "ERROR"
         return "OK"
     
-    async def send_post(self, client, account_phone, group, attempts=0):
+    async def send_post(self, client, account_phone, group, send_image=True, attempts=0):
         try:
             group_entity = await self.get_channel_entity(client, group)
             if not group_entity:
                 console.log(f"Группа {group} не найдена или недоступна.", style="red")
                 self.file_manager.add_to_blacklist(account_phone, group)
                 return "OK"
-            if self.image:
+            if self.image and send_image:
                 await client.send_file(
                     group, self.image,
                     caption=self.post_text,
@@ -110,6 +110,10 @@ class ChannelManager:
             elif "You can't write" in str(e):
                 console.log(f"Группа {group_entity.title} недоступна для аккаунта {account_phone}. Пропускаем.", style="yellow")
                 self.file_manager.add_to_blacklist(account_phone, group)
+                return "OK"
+            elif "CHAT_SEND_PHOTOS_FORBIDDEN" in str(e):
+                console.log(f"Ошибка: запрещено отправлять фото в этом чате. Повторная отправка без картинки.", style="yellow")
+                await self.send_post(client, account_phone, group, send_image=False)
                 return "OK"
             else:
                 console.log(f"Ошибка при отправке сообщения в группе {group_entity.title}, {account_phone}: {e}", style="red")
