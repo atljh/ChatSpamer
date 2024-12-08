@@ -71,3 +71,13 @@ class FileManager:
     def is_group_blacklisted(account_phone, group) -> bool:
         blacklist = FileManager.read_blacklist()
         return group in blacklist.get(account_phone, [])
+    
+    @staticmethod
+    def clear_blacklist(file='blacklist.txt'):
+        try:
+            with open(file, 'w', encoding='utf-8') as f:
+                f.write('')
+            console.log("Черный список очищен")
+            return True
+        except Exception as e:
+            console.log(f"Ошибка при очистке черного списка: {e}", style="red")

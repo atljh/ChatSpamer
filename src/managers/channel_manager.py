@@ -102,6 +102,13 @@ class ChannelManager:
             console.log("Канал не связан с чатом", style="red")
             self.file_manager.add_to_blacklist(account_phone, group)
             return "OK"
+        except UserDeactivatedBanError:
+            console.log(f"Аккаунт {account_phone} забанен", style="red")
+            return "ERROR_AUTH"
+        except ChatWriteForbiddenError:
+            console.log(f"У аккаунта {account_phone} нет прав на отправку сообщений в чат.", style="yellow")
+            self.file_manager.add_to_blacklist(account_phone, group)
+            return "OK"
         except Exception as e:
             if "private and you lack permission" in str(e):
                 console.log(f"Группа {group_entity.title} недоступна для аккаунта {account_phone}. Пропускаем.", style="yellow")

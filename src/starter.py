@@ -6,9 +6,9 @@ from typing import Generator
 from tooler import move_item
 
 from src.console import console
-from .spamer import Spamer
 from src.thon import BaseSession
-
+from .spamer import Spamer
+from src.managers import FileManager
 
 class Starter(BaseSession):
     def __init__(
@@ -19,6 +19,7 @@ class Starter(BaseSession):
         self.semaphore = Semaphore(threads)
         self.config = config
         super().__init__()
+        self.file_manager = FileManager()
 
     async def _main(
         self,
@@ -44,8 +45,8 @@ class Starter(BaseSession):
                 move_item(item, self.errors_dir, True, True)
                 move_item(json_file, self.errors_dir, True, True)
             if "MUTE" in r:
-                move_item(item, self.errors_dir, True, True)
-                move_item(json_file, self.errors_dir, True, True)
+                move_item(item, self.muted_dir, True, True)
+                move_item(json_file, self.muted_dir, True, True)
             if "OK" in r:
                 console.log(f"Аккаунт {item.name} успешно закончил работу", style="green")
         except Exception as e:
@@ -56,8 +57,13 @@ class Starter(BaseSession):
             yield item, json_file, json_data
 
     async def main(self) -> bool:
+        cycle_count = 0
         for item, json_file, json_data in self.__get_sessions_and_users():
             await self._main(item, json_file, json_data, self.config)
             console.log(f"Задержка {self.config.delay_between_accounts} секунд перед следующим аккаунтом.", style="yellow")
             await asyncio.sleep(self.config.delay_between_accounts)
+            cycle_count += 1
+            if cycle_count >= self.config.cycles_before_unblacklist:
+                self.file_manager.clear_blacklist()
+                cycle_count = 0
         return True
