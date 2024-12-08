@@ -1,9 +1,14 @@
 import asyncio
 
-from telethon.errors import UserNotParticipantError, FloodWaitError
 from telethon.errors.rpcerrorlist import UserBannedInChannelError, MsgIdInvalidError
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
+from telethon.errors import (
+    FloodWaitError, UserBannedInChannelError, UserNotParticipantError, ChatWriteForbiddenError, 
+    ChatAdminRequiredError, UserIsBlockedError, InputUserDeactivatedError, 
+    PeerFloodError, ChannelPrivateError, UsernameNotOccupiedError, 
+    InviteRequestSentError, InviteHashExpiredError, ChatSendMediaForbiddenError, UserDeactivatedBanError
+)
 
 from src.console import console
 from .file_manager import FileManager
@@ -19,11 +24,15 @@ class ChannelManager:
         self.delay_between_accounts = self.config.delay_between_accounts
         self.cycles_before_unblacklist = self.config.cycles_before_unblacklist
 
+        self.file_manager = FileManager()
         self.groups = FileManager.read_groups()
         self.post_text, self.image  = FileManager.read_post_and_image()
 
     async def process_groups(self, client, account_phone):
         for group in self.groups:
+            if self.file_manager.is_group_blacklisted(account_phone, group):
+                console.log(f"Группа {group} в черном списке аккаунта {account_phone}. Пропускаем", style="yellow")
+                continue
             join_result = await self.join_group(client, account_phone, group)
             if "OK" not in join_result:
                 return join_result
@@ -62,10 +71,11 @@ class ChannelManager:
     
     async def send_post(self, client, account_phone, group, attempts=0):
         try:
-            group = await self.get_channel_entity(client, group)
-            if not group:
-                console.log("Канал не найден или недоступен.", style="red")
-                return
+            group_entity = await self.get_channel_entity(client, group)
+            if not group_entity:
+                console.log(f"Группа {group} не найдена или недоступна.", style="red")
+                self.file_manager.add_to_blacklist(account_phone, group)
+                return "OK"
             if self.image:
                 await client.send_file(
                     group, self.image,
@@ -77,23 +87,35 @@ class ChannelManager:
                     group, self.post_text, 
                     parse_mode='HTML'
                 )
-
-            console.log(f"Сообщение отправлено от аккаунта {account_phone} в группу {group.title}", style="green")
+            console.log(f"Сообщение отправлено от аккаунта {account_phone} в группу {group_entity.title}", style="green")
         except FloodWaitError as e:
             console.log(f"Слишком много запросов от аккаунта {account_phone}. Ожидание {e.seconds} секунд.", style="yellow")
             return "MUTE"
+        except PeerFloodError:
+            console.log(f"Аккаунт {account_phone} временно заблокирован за спам. Перемещаем аккаунт в папку мут.", style="yellow")
+            return "MUTE"
         except UserBannedInChannelError:
-            console.log(f"Аккаунт {account_phone} заблокирован в группе {group.title}", style="red")
+            console.log(f"Аккаунт {account_phone} заблокирован в группе {group_entity.title}", style="red")
+            self.file_manager.add_to_blacklist(account_phone, group)
+            return "OK"
         except MsgIdInvalidError:
             console.log("Канал не связан с чатом", style="red")
+            self.file_manager.add_to_blacklist(account_phone, group)
+            return "OK"
         except Exception as e:
             if "private and you lack permission" in str(e):
-                console.log(f"Группа {group.title} недоступен для аккаунта {account_phone}. Пропускаем.", style="yellow")
+                console.log(f"Группа {group_entity.title} недоступна для аккаунта {account_phone}. Пропускаем.", style="yellow")
+                self.file_manager.add_to_blacklist(account_phone, group)
+                return "OK"
             elif "You can't write" in str(e):
-                console.log(f"Группа {group.title} недоступен для аккаунта {account_phone}. Пропускаем.", style="yellow")
+                console.log(f"Группа {group_entity.title} недоступна для аккаунта {account_phone}. Пропускаем.", style="yellow")
+                self.file_manager.add_to_blacklist(account_phone, group)
+                return "OK"
             else:
-                console.log(f"Ошибка при отправке сообщения: {e}", style="red")
+                console.log(f"Ошибка при отправке сообщения в группе {group_entity.title}, {account_phone}: {e}", style="red")
+            return "ERROR"
         return "OK"
+
 
     async def is_participant(self, client, group):
         try:

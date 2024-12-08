@@ -2,7 +2,7 @@ import sys
 import yaml
 from pydantic import BaseModel, Field
 
-from src.logger import logger
+from src.console import console
 
 
 class Config(BaseModel):
@@ -47,5 +47,5 @@ class ConfigManager:
                     raise ValueError("Секция 'settings' отсутствует или имеет неверный формат")
                 return Config(**config_data['settings'])
         except Exception as e:
-            logger.error(f"Ошибка загрузки конфигурации: {e}")
+            console.log(f"Ошибка загрузки конфигурации: {e}")
             sys.exit(1)

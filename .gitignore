@@ -9,3 +9,5 @@ poetry.lock
 *.pyo
 *.session
 *.json
+*.txt
+bot1.py

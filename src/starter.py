@@ -56,10 +56,6 @@ class Starter(BaseSession):
             yield item, json_file, json_data
 
     async def main(self) -> bool:
-        tasks = set()
         for item, json_file, json_data in self.__get_sessions_and_users():
-            tasks.add(self._main(item, json_file, json_data, self.config))
-        if not tasks:
-            return False
-        await asyncio.gather(*tasks, return_exceptions=True)
+            await self._main(item, json_file, json_data, self.config)
         return True
