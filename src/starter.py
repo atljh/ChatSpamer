@@ -58,4 +58,6 @@ class Starter(BaseSession):
     async def main(self) -> bool:
         for item, json_file, json_data in self.__get_sessions_and_users():
             await self._main(item, json_file, json_data, self.config)
+            console.log(f"Задержка {self.config.delay_between_accounts} секунд перед следующим аккаунтом.", style="yellow")
+            await asyncio.sleep(self.config.delay_between_accounts)
         return True
