@@ -15,6 +15,7 @@ class FileManager:
                 return groups
         except FileNotFoundError:
             console.log("Файл groups.txt не найден", style="bold red")
+            sys.exit(1)
             return None
 
     @staticmethod
@@ -28,12 +29,14 @@ class FileManager:
                 post_text = f.read()
         except FileNotFoundError:
             console.log(f"Файл {post_file_path} не найден", style="bold red")
-
+            sys.exit(1)
+            return None
+        
         image_file_path = os.path.join(post_path, "image.jpg")
         if os.path.exists(image_file_path):
             image_path = image_file_path
         else:
-            console.log(f"Изображение {image_file_path} не найдено", style="bold yellow")
+            console.log(f"Изображение {image_file_path} не найдено, сообщение будет отправлено без него.", style="bold yellow")
 
         return post_text, image_path
     
