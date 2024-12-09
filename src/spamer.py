@@ -29,7 +29,6 @@ class Spamer(BaseThon):
     async def main(self) -> str:
         r = await self.check()
         if "OK" not in r:
-            await self.disconnect()
             return r
         r = await self._start_spam()
         if "OK" not in r:
