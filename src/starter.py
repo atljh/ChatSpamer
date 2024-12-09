@@ -59,14 +59,15 @@ class Starter(BaseSession):
             yield item, json_file, json_data
 
     async def main(self) -> bool:
-        cycle_count = 0
-        for item, json_file, json_data in self.__get_sessions_and_users():
-            console.log(f"Задержка {self.config.delay_between_accounts} секунд перед сменой аккаунта.")
-            await asyncio.sleep(self.config.delay_between_accounts)
-            await self._main(item, json_file, json_data, self.config)
+        cycle_count = 1
+        while True:
+            console.log(f"Цикл №{cycle_count}")
+            for item, json_file, json_data in self.__get_sessions_and_users():
+                console.log(f"Задержка {self.config.delay_between_accounts} секунд перед сменой аккаунта.")
+                await asyncio.sleep(self.config.delay_between_accounts)
+                await self._main(item, json_file, json_data, self.config)
             cycle_count += 1
+            print(self.config.cycles_before_unblacklist, cycle_count)
             if cycle_count >= self.config.cycles_before_unblacklist:
                 self.file_manager.clear_blacklist()
-                cycle_count = 0
-        console.log("Все аккаунты закончили работу", style="green")
-        return True
+                cycle_count = 1

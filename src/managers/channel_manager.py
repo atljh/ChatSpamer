@@ -46,8 +46,9 @@ class ChannelManager:
     async def join_group(self, client, account_phone, group):
         try:
             entity = await client.get_entity(group)
-            if await self.is_participant(client, entity):
-                return "OK"
+            is_member = await self.is_participant(client, entity, group, account_phone)
+            if is_member:
+                return is_member
         except Exception:
             try:
                 await self.sleep_before_enter_group()
@@ -56,7 +57,7 @@ class ChannelManager:
                 return "OK"
             except Exception as e:
                 if "is not valid anymore" in str(e):
-                    console.log("Вы забанены в канале, помещаем в черный список", style="red")
+                    console.log(f"Аккаунт {account_phone} забанен в чате {group}, добавляем в черный список.", style="red")
                     self.file_manager.add_to_blacklist(account_phone, group)
                     return "SKIP"
                 elif "successfully requested to join" in str(e):
@@ -137,13 +138,17 @@ class ChannelManager:
         return "OK"
 
 
-    async def is_participant(self, client, group):
+    async def is_participant(self, client, group, group_link, account_phone):
         try:
             await client.get_permissions(group, 'me')
-            return True
+            return "OK"
         except UserNotParticipantError:
             return False
         except Exception as e:
+            if "private and you lack permission" in str(e):
+                console.log(f"Аккаунт {account_phone} забанен в чате {group.title}, добавляем в черный список.", style="red")
+                self.file_manager.add_to_blacklist(account_phone, group_link)
+                return "SKIP"
             console.log(f"Ошибка при обработке канала {group}: {e}")
             return False
     
