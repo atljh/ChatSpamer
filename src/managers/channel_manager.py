@@ -14,7 +14,6 @@ from src.console import console
 from .file_manager import FileManager
 
 class ChannelManager:
-    MAX_SEND_ATTEMPTS = 3 
 
     def __init__(self, config):
         self.config = config
@@ -34,6 +33,8 @@ class ChannelManager:
                 console.log(f"Группа {group} в черном списке аккаунта {account_phone}. Пропускаем", style="yellow")
                 continue
             join_result = await self.join_group(client, account_phone, group)
+            if "SKIP" in join_result:
+                continue
             if "OK" not in join_result:
                 return join_result
             await self.sleep_before_send_message()
@@ -51,25 +52,29 @@ class ChannelManager:
             try:
                 await self.sleep_before_enter_group()
                 await client(ImportChatInviteRequest(group[6:]))
-                console.log(f"Аккаунт {account_phone} присоединился к приватной группе {group}")
+                console.log(f"Аккаунт {account_phone} присоединился к приватной группе {group}", style="green")
                 return "OK"
             except Exception as e:
                 if "is not valid anymore" in str(e):
-                    console.log("Вы забанены в канале")
-                    return "OK"
+                    console.log("Вы забанены в канале, помещаем в черный список", style="red")
+                    self.file_manager.add_to_blacklist(account_phone, group)
+                    return "SKIP"
+                elif "successfully requested to join" in str(e):
+                    console.log(f"Запрос на подписку в группу {group} уже отправлен и еще не подтвержден.", style="yellow")
+                    return "SKIP"
                 else:
-                    console.log(f"Ошибка при присоединении к группе {group}: {e}")
-                    return
+                    console.log(f"Ошибка при присоединении к группе {group}: {e}", style="red")
+                    return "ERROR"
         try:
             await self.sleep_before_enter_group()
             await client(JoinChannelRequest(group))
-            console.log(f"Аккаунт присоединился к группе {group}")
+            console.log(f"Аккаунт присоединился к группе {group}", style="green")
         except Exception as e:
-            console.log(f"Ошибка при подписке на группу {group}: {e}")
+            console.log(f"Ошибка при подписке на группу {group}: {e}", style="red")
             return "ERROR"
         return "OK"
     
-    async def send_post(self, client, account_phone, group, send_image=True, attempts=0):
+    async def send_post(self, client, account_phone, group, send_image=True):
         try:
             group_entity = await self.get_channel_entity(client, group)
             if not group_entity:
@@ -108,6 +113,10 @@ class ChannelManager:
         except ChatWriteForbiddenError:
             console.log(f"У аккаунта {account_phone} нет прав на отправку сообщений в чат.", style="yellow")
             self.file_manager.add_to_blacklist(account_phone, group)
+            return "OK"
+        except ChatSendMediaForbiddenError:
+            console.log(f"Ошибка: запрещено отправлять фото в этом чате. Повторная отправка без картинки.", style="yellow")
+            await self.send_post(client, account_phone, group, send_image=False)
             return "OK"
         except Exception as e:
             if "private and you lack permission" in str(e):

@@ -41,6 +41,8 @@ class Starter(BaseSession):
             if "ERROR_AUTH" in r:
                 move_item(item, self.banned_dir, True, True)
                 move_item(json_file, self.banned_dir, True, True)
+                console.log(f"Аккаунт {item.name} забанен или разлогинен", style="red")
+                return
             if "ERROR" in r:
                 move_item(item, self.errors_dir, True, True)
                 move_item(json_file, self.errors_dir, True, True)
@@ -59,11 +61,12 @@ class Starter(BaseSession):
     async def main(self) -> bool:
         cycle_count = 0
         for item, json_file, json_data in self.__get_sessions_and_users():
-            await self._main(item, json_file, json_data, self.config)
-            console.log(f"Задержка {self.config.delay_between_accounts} секунд перед следующим аккаунтом.", style="yellow")
+            console.log(f"Задержка {self.config.delay_between_accounts} секунд перед сменой аккаунта.")
             await asyncio.sleep(self.config.delay_between_accounts)
+            await self._main(item, json_file, json_data, self.config)
             cycle_count += 1
             if cycle_count >= self.config.cycles_before_unblacklist:
                 self.file_manager.clear_blacklist()
                 cycle_count = 0
+        console.log("Все аккаунты закончили работу", style="green")
         return True
