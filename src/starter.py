@@ -46,9 +46,11 @@ class Starter(BaseSession):
             if "ERROR" in r:
                 move_item(item, self.errors_dir, True, True)
                 move_item(json_file, self.errors_dir, True, True)
+                return
             if "MUTE" in r:
                 move_item(item, self.muted_dir, True, True)
                 move_item(json_file, self.muted_dir, True, True)
+                return
             if "OK" in r:
                 console.log(f"Аккаунт {item.name} успешно закончил работу", style="green")
         except Exception as e:
@@ -62,12 +64,19 @@ class Starter(BaseSession):
         cycle_count = 1
         while True:
             console.log(f"Цикл №{cycle_count}")
-            for item, json_file, json_data in self.__get_sessions_and_users():
+            
+            sessions = list(self.__get_sessions_and_users())
+            if not sessions:
+                console.log("Нет активных сессий. Прекращение работы.", style="yellow")
+                return False
+            
+            for item, json_file, json_data in sessions:
+                print(item, json_file)
                 console.log(f"Задержка {self.config.delay_between_accounts} секунд перед сменой аккаунта.")
                 await asyncio.sleep(self.config.delay_between_accounts)
                 await self._main(item, json_file, json_data, self.config)
+            
             cycle_count += 1
-            print(self.config.cycles_before_unblacklist, cycle_count)
             if cycle_count >= self.config.cycles_before_unblacklist:
                 self.file_manager.clear_blacklist()
                 cycle_count = 1
