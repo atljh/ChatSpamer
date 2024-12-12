@@ -1,9 +1,13 @@
 import os
 import sys
+import json
 
 from src.console import console
 
 class FileManager:
+    def __init__(self, positions_filename="positions.json"):
+        self.positions_filename = positions_filename
+        
     @staticmethod
     def read_groups(file='groups.txt') -> list:
         try:
@@ -84,3 +88,19 @@ class FileManager:
             return True
         except Exception as e:
             console.log(f"Ошибка при очистке черного списка: {e}", style="red")
+
+    def get_last_position(self):
+        try:
+            with open(self.positions_filename, "r") as file:
+                data = json.load(file)
+                return data.get("last_position", 0)
+        except FileNotFoundError:
+            return 0
+
+    def save_last_position(self, position):
+        try:
+            data = {"last_position": position}
+            with open(self.positions_filename, "w") as file:
+                json.dump(data, file)
+        except Exception as e:
+            print(f"Ошибка при сохранении позиции: {e}")

@@ -28,20 +28,33 @@ class ChannelManager:
         self.post_text, self.image  = FileManager.read_post_and_image()
 
     async def process_groups(self, client, account_phone):
-        for group in self.groups:
+        groups = self.groups
+        last_position = self.file_manager.get_last_position()
+        if last_position is not None:
+            groups = groups[last_position:]
+        
+        for index, group in enumerate(groups):
+            current_position = last_position + index if last_position is not None else index
+            self.file_manager.save_last_position(current_position)
+
             if self.file_manager.is_group_blacklisted(account_phone, group):
-                console.log(f"Группа {group} в черном списке аккаунта {account_phone}. Пропускаем", style="yellow")
+                console.log(f"Группа {group} в черном списке аккаунта {account_phone}. Пропускаем.", style="yellow")
                 continue
+
             join_result = await self.join_group(client, account_phone, group)
             if "SKIP" in join_result:
                 continue
             if "OK" not in join_result:
                 return join_result
+
             await self.sleep_before_send_message()
             send_result = await self.send_post(client, account_phone, group)
             if "OK" not in send_result:
                 return send_result
+
+        self.file_manager.save_last_position(0)
         return "OK"
+
     
     async def join_group(self, client, account_phone, group):
         try:
