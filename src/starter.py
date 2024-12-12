@@ -71,7 +71,6 @@ class Starter(BaseSession):
                 return False
             
             for item, json_file, json_data in sessions:
-                print(item, json_file)
                 console.log(f"Задержка {self.config.delay_between_accounts} секунд перед сменой аккаунта.")
                 await asyncio.sleep(self.config.delay_between_accounts)
                 await self._main(item, json_file, json_data, self.config)

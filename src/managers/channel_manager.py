@@ -132,6 +132,9 @@ class ChannelManager:
                 console.log(f"Ошибка: запрещено отправлять фото в этом чате. Повторная отправка без картинки.", style="yellow")
                 await self.send_post(client, account_phone, group, send_image=False)
                 return "OK"
+            elif "A wait of" in str(e):
+                console.log(f"Слишком много запросов от аккаунта {account_phone}. Ожидание {e.seconds} секунд.", style="yellow")
+                return "MUTE"
             else:
                 console.log(f"Ошибка при отправке сообщения в группе {group_entity.title}, {account_phone}: {e}", style="red")
             return "ERROR"
